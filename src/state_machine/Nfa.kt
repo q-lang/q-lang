@@ -6,22 +6,6 @@ data class Nfa<STATE, SYMBOL>(
                 mutableMapOf(),
         val finalStates: MutableSet<STATE> = mutableSetOf()) {
 
-  operator fun get(state: STATE): MutableMap<SYMBOL?, MutableSet<STATE>> {
-    return states[state]!!
-  }
-
-  operator fun get(state: STATE, symbol: SYMBOL?): MutableSet<STATE> {
-    return get(state)[symbol]!!
-  }
-
-  operator fun set(state: STATE, symbol: MutableMap<SYMBOL?, MutableSet<STATE>>) {
-    states[state] = symbol
-  }
-
-  operator fun set(startState: STATE, symbol: SYMBOL?, endState: MutableSet<STATE>) {
-    states[startState]!![symbol] = endState
-  }
-
   fun epsilonClosure(state: STATE): Set<STATE> {
     return epsilonClosure(setOf(state))
   }
@@ -29,7 +13,7 @@ data class Nfa<STATE, SYMBOL>(
   fun epsilonClosure(states: Set<STATE>): Set<STATE> {
     var result = states.toMutableSet()
     for (state in states) {
-      val epsilonTransitions = this[state][null]
+      val epsilonTransitions = this.states[state]!![null]
       if (epsilonTransitions != null) {
         result = result.union(epsilonClosure(epsilonTransitions)).toMutableSet()
       }
@@ -46,7 +30,7 @@ data class Nfa<STATE, SYMBOL>(
         continue
       val transitions = mutableMapOf<SYMBOL, Set<STATE>>()
       for (startState in startStates) {
-        for ((symbol, endStates) in this[startState]) {
+        for ((symbol, endStates) in states[startState]!!) {
           if (symbol != null) {
             transitions[symbol] = transitions[symbol].orEmpty().union(epsilonClosure(endStates))
           }
@@ -54,7 +38,7 @@ data class Nfa<STATE, SYMBOL>(
       }
       for (endStates in transitions.values)
         queue.add(endStates)
-      dfa[startStates] = transitions
+      dfa.states[startStates] = transitions
       if (startStates.intersect(finalStates).isNotEmpty())
         dfa.finalStates.add(startStates)
     }
