@@ -38,17 +38,17 @@ data class Nfa<STATE, SYMBOL>(
   }
 
   fun toDfa(): Dfa<Set<STATE>, SYMBOL> {
-    val cache = mutableMapOf<Set<STATE>, Set<STATE>>()
+    val cache: MutableMap<Set<STATE>, Set<STATE>> = mutableMapOf()
     val dfaInitialState = epsilonClosure(initialState, cache)
-    val dfaStates = mutableMapOf<Set<STATE>, Map<SYMBOL, Set<STATE>>>()
-    val dfaFinalStates = mutableSetOf<Set<STATE>>()
+    val dfaStates: MutableMap<Set<STATE>, Map<SYMBOL, Set<STATE>>> = mutableMapOf()
+    val dfaFinalStates: MutableSet<Set<STATE>> = mutableSetOf()
 
     val queue = mutableListOf(dfaInitialState)
     while (queue.isNotEmpty()) {
       val startStates = queue.removeAt(0)
       if (startStates in dfaStates)
         continue
-      val transitions = mutableMapOf<SYMBOL, Set<STATE>>()
+      val transitions: MutableMap<SYMBOL, Set<STATE>> = mutableMapOf()
       for (startState in startStates) {
         for ((symbol, endStates) in this[startState]) {
           if (symbol != null) {
