@@ -1,19 +1,18 @@
 package state_machine
 
 data class Nfa<STATE, SYMBOL>(
+        val states: Map<STATE, Map<SYMBOL?, Set<STATE>>>,
         val initialState: STATE,
-        val states: MutableMap<STATE, MutableMap<SYMBOL?, MutableSet<STATE>>> =
-                mutableMapOf(),
-        val finalStates: MutableSet<STATE> = mutableSetOf()) {
+        val finalStates: Set<STATE> = setOf()) {
 
-  fun epsilonClosure(state: STATE): Set<STATE> {
-    return epsilonClosure(setOf(state))
+  operator fun get(state: STATE): Map<SYMBOL?, Set<STATE>> {
+    return states[state] ?: throw UndefinedStateException("$state")
   }
 
   fun epsilonClosure(states: Set<STATE>): Set<STATE> {
     var result = states.toMutableSet()
     for (state in states) {
-      val epsilonTransitions = this.states[state]!![null]
+      val epsilonTransitions = this[state][null]
       if (epsilonTransitions != null) {
         result = result.union(epsilonClosure(epsilonTransitions)).toMutableSet()
       }
@@ -21,27 +20,49 @@ data class Nfa<STATE, SYMBOL>(
     return result
   }
 
+  fun epsilonClosure(states: Set<STATE>, cache: MutableMap<Set<STATE>, Set<STATE>>): Set<STATE> {
+    var result = cache[states]
+    if (result != null)
+      return result
+    result = epsilonClosure(states)
+    cache[states] = result
+    return result
+  }
+
+  fun epsilonClosure(state: STATE): Set<STATE> {
+    return epsilonClosure(setOf(state))
+  }
+
+  fun epsilonClosure(state: STATE, cache: MutableMap<Set<STATE>, Set<STATE>>): Set<STATE> {
+    return epsilonClosure(setOf(state), cache)
+  }
+
   fun toDfa(): Dfa<Set<STATE>, SYMBOL> {
-    val dfa = Dfa<Set<STATE>, SYMBOL>(epsilonClosure(initialState))
-    val queue = mutableListOf(dfa.initialState)
+    val cache = mutableMapOf<Set<STATE>, Set<STATE>>()
+    val dfaInitialState = epsilonClosure(initialState, cache)
+    val dfaStates = mutableMapOf<Set<STATE>, Map<SYMBOL, Set<STATE>>>()
+    val dfaFinalStates = mutableSetOf<Set<STATE>>()
+
+    val queue = mutableListOf(dfaInitialState)
     while (queue.isNotEmpty()) {
       val startStates = queue.removeAt(0)
-      if (startStates in dfa.states)
+      if (startStates in dfaStates)
         continue
       val transitions = mutableMapOf<SYMBOL, Set<STATE>>()
       for (startState in startStates) {
-        for ((symbol, endStates) in states[startState]!!) {
+        for ((symbol, endStates) in this[startState]) {
           if (symbol != null) {
-            transitions[symbol] = transitions[symbol].orEmpty().union(epsilonClosure(endStates))
+            transitions[symbol] = transitions[symbol].orEmpty().union(epsilonClosure(endStates, cache))
           }
         }
       }
       for (endStates in transitions.values)
         queue.add(endStates)
-      dfa.states[startStates] = transitions
+      dfaStates[startStates] = transitions.toMap()
       if (startStates.intersect(finalStates).isNotEmpty())
-        dfa.finalStates.add(startStates)
+        dfaFinalStates.add(startStates)
     }
-    return dfa
+
+    return Dfa(dfaStates.toMap(), dfaInitialState, dfaFinalStates.toSet())
   }
 }
