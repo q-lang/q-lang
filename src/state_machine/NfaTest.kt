@@ -2,8 +2,24 @@ package state_machine
 
 import org.testng.annotations.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 internal class NfaTest {
+  @Test
+  fun `NFA validation`() {
+    Nfa<Int, Char>(mapOf(0 to mapOf()), 0, setOf(0))
+    assertFailsWith(UndefinedStateException::class) {
+      Nfa<Int, Char>(mapOf(0 to mapOf()), 1, setOf(0))
+    }
+    assertFailsWith(UndefinedStateException::class) {
+      Nfa<Int, Char>(mapOf(0 to mapOf()), 0, setOf(1))
+    }
+    Nfa(mapOf(0 to mapOf('a' as Char? to setOf(0))), 0, setOf(0))
+    assertFailsWith(UndefinedStateException::class) {
+      Nfa(mapOf(0 to mapOf('a' as Char? to setOf(1))), 0, setOf())
+    }
+  }
+
   @Test
   fun `epsilon NFA to DFA`() {
     // Epsilon NFA for regular expression: (a|b)*a

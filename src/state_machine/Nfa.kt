@@ -5,6 +5,25 @@ data class Nfa<STATE, SYMBOL>(
         val initialState: STATE,
         val finalStates: Set<STATE> = setOf()) {
 
+  init {
+    if (initialState !in states)
+      throw UndefinedStateException("initial state: $initialState")
+    for (state in finalStates) {
+      if (state !in states) {
+        throw UndefinedStateException("final state: $state")
+      }
+    }
+    for ((startState, transitions) in states) {
+      for ((symbol, endStates) in transitions) {
+        for (endState in endStates) {
+          if (endState !in states) {
+            throw UndefinedStateException("transition end state: $endState ($startState, $symbol, $endState)")
+          }
+        }
+      }
+    }
+  }
+
   operator fun get(state: STATE): Map<SYMBOL?, Set<STATE>> {
     return states[state] ?: throw UndefinedStateException("$state")
   }
