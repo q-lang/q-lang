@@ -1,23 +1,24 @@
 package state_machine
 
-data class Nfa<STATE, SYMBOL>(
-        val states: Map<STATE, Map<SYMBOL?, Set<STATE>>>,
+data class Nfa<STATE, SYMBOL, TAG>(
         val initialState: STATE,
-        val finalStates: Set<STATE> = setOf()) {
+        val states: Map<STATE, Map<SYMBOL?, Set<STATE>>> = mapOf(initialState to mapOf()),
+        val groupsStart: Map<STATE, Set<TAG>> = mapOf(),
+        val groupsEnd: Map<STATE, Set<TAG>> = mapOf()) {
 
   init {
     if (initialState !in states)
-      throw UndefinedStateException("initial state: $initialState")
-    for (state in finalStates) {
+      throw UndefinedStateException("initial state: $initialState\n$this")
+    for (state in groupsStart.keys) {
       if (state !in states) {
-        throw UndefinedStateException("final state: $state")
+        throw UndefinedStateException("final state: $state\n$this")
       }
     }
-    for ((startState, transitions) in states) {
-      for ((symbol, endStates) in transitions) {
-        for (endState in endStates) {
-          if (endState !in states) {
-            throw UndefinedStateException("transition end state: $endState ($startState, $symbol, $endState)")
+    for ((start, transitions) in states) {
+      for ((input, endStates) in transitions) {
+        for (end in endStates) {
+          if (end !in states) {
+            throw UndefinedStateException("transition end state: $end ($start, $input, $end)\n$this")
           }
         }
       }
@@ -56,32 +57,76 @@ data class Nfa<STATE, SYMBOL>(
     return epsilonClosure(setOf(state), cache)
   }
 
-  fun toDfa(): Dfa<Set<STATE>, SYMBOL> {
+  fun toDfa(): Dfa<Set<STATE>, SYMBOL, TAG> {
     val cache: MutableMap<Set<STATE>, Set<STATE>> = mutableMapOf()
+
     val dfaInitialState = epsilonClosure(initialState, cache)
-    val dfaStates: MutableMap<Set<STATE>, Map<SYMBOL, Set<STATE>>> = mutableMapOf()
-    val dfaFinalStates: MutableSet<Set<STATE>> = mutableSetOf()
+    val dfaStates = mutableMapOf<Set<STATE>, Map<SYMBOL, Set<STATE>>>()
+    val dfaGroupsStart = mutableMapOf<Set<STATE>, Set<TAG>>()
+    val dfaGroupsEnd = mutableMapOf<Set<STATE>, Set<TAG>>()
 
     val queue = mutableListOf(dfaInitialState)
     while (queue.isNotEmpty()) {
       val startStates = queue.removeAt(0)
       if (startStates in dfaStates)
         continue
+
       val transitions: MutableMap<SYMBOL, Set<STATE>> = mutableMapOf()
-      for (startState in startStates) {
-        for ((symbol, endStates) in this[startState]) {
-          if (symbol != null) {
-            transitions[symbol] = transitions[symbol].orEmpty().union(epsilonClosure(endStates, cache))
+      for (start in startStates) {
+        for ((input, endStates) in this[start]) {
+          if (input != null) {
+            transitions[input] = transitions[input].orEmpty().union(epsilonClosure(endStates, cache))
           }
         }
       }
+
       for (endStates in transitions.values)
         queue.add(endStates)
-      dfaStates[startStates] = transitions.toMap()
-      if (startStates.intersect(finalStates).isNotEmpty())
-        dfaFinalStates.add(startStates)
+      dfaStates[startStates] = transitions
+
+      val groupsStartIntersect = startStates.intersect(groupsStart.keys)
+      if (groupsStartIntersect.isNotEmpty()) {
+        var finalGroupsStart: Set<TAG> = mutableSetOf()
+        for (state in groupsStartIntersect)
+          finalGroupsStart = finalGroupsStart.union(groupsStart[state]!!)
+        dfaGroupsStart[startStates] = dfaGroupsStart[startStates].orEmpty().union(finalGroupsStart)
+      }
+
+      val groupsEndIntersect = startStates.intersect(groupsEnd.keys)
+      if (groupsEndIntersect.isNotEmpty()) {
+        var finalGroupsEnd: Set<TAG> = mutableSetOf()
+        for (state in groupsEndIntersect)
+          finalGroupsEnd = finalGroupsEnd.union(groupsEnd[state]!!)
+        dfaGroupsEnd[startStates] = dfaGroupsEnd[startStates].orEmpty().union(finalGroupsEnd)
+      }
     }
 
-    return Dfa(dfaStates.toMap(), dfaInitialState, dfaFinalStates.toSet())
+    return Dfa(dfaInitialState, dfaStates, dfaGroupsStart, dfaGroupsEnd)
   }
+
+}
+
+data class NfaBuilder<STATE, SYMBOL, TAG>(var initialState: STATE) {
+  var states: MutableMap<STATE, Map<SYMBOL?, Set<STATE>>> = mutableMapOf(initialState to mapOf())
+  var tagsStart: MutableMap<STATE, Set<TAG>> = mutableMapOf()
+  var tagsEnd: MutableMap<STATE, Set<TAG>> = mutableMapOf()
+
+  fun transition(start: STATE, input: SYMBOL?, endStates: Set<STATE>) = apply {
+    val trans = states[start].orEmpty().toMutableMap()
+    trans[input] = trans[input].orEmpty().union(endStates)
+    states[start] = trans
+    for (end in endStates)
+      states[end] = states[end].orEmpty()
+  }
+
+  fun transition(start: STATE, input: SYMBOL?, end: STATE) = apply {
+    transition(start, input, setOf(end))
+  }
+
+  fun group(start: STATE, end: STATE, tag: TAG) = apply {
+    tagsStart[start] = tagsStart[start].orEmpty().union(setOf(tag))
+    tagsEnd[end] = tagsEnd[end].orEmpty().union(setOf(tag))
+  }
+
+  fun build() = Nfa(initialState, states, tagsStart, tagsEnd)
 }
