@@ -7,124 +7,111 @@ import kotlin.test.assertFailsWith
 internal class NfaTest {
   @Test
   fun `NFA validation`() {
-    Nfa<Int, Char>(mapOf(0 to mapOf()), 0, setOf(0))
+    // check initial state
+    Nfa<Int, Char, String>(0, mapOf(0 to mapOf()), mapOf(0 to setOf("")))
     assertFailsWith(UndefinedStateException::class) {
-      Nfa<Int, Char>(mapOf(0 to mapOf()), 1, setOf(0))
+      Nfa<Int, Char, String>(1, mapOf(0 to mapOf()), mapOf(0 to setOf("")))
     }
+
+    // check final states
     assertFailsWith(UndefinedStateException::class) {
-      Nfa<Int, Char>(mapOf(0 to mapOf()), 0, setOf(1))
+      Nfa<Int, Char, String>(0, mapOf(0 to mapOf()), mapOf(1 to setOf("")))
     }
-    Nfa(mapOf(0 to mapOf('a' as Char? to setOf(0))), 0, setOf(0))
+
+    // check transition end states
+    Nfa(0, mapOf(0 to mapOf('a' as Char? to setOf(0))), mapOf(0 to setOf("")))
     assertFailsWith(UndefinedStateException::class) {
-      Nfa(mapOf(0 to mapOf('a' as Char? to setOf(1))), 0, setOf())
+      Nfa(0, mapOf(0 to mapOf('a' as Char? to setOf(1))), mapOf(0 to setOf("")))
+    }
+  }
+
+  @Test
+  fun NfaBuild() {
+    // check initial state
+    NfaBuilder<Int, Char, String>(0)
+            .transition(0, 'a', 0)
+            .build()
+    assertFailsWith(UndefinedStateException::class) {
+      NfaBuilder<Int, Char, String>(1)
+              .transition(0, 'a', 0)
+              .build()
+    }
+
+    // check final state
+    NfaBuilder<Int, Char, String>(0)
+            .transition(0, 'a', 0)
+            .group(0, 0, "")
+            .build()
+    assertFailsWith(UndefinedStateException::class) {
+      NfaBuilder<Int, Char, String>(0)
+              .transition(0, 'a', 0)
+              .group(0, 1, "")
+              .build()
     }
   }
 
   @Test
   fun `epsilon NFA to DFA`() {
     // Epsilon NFA for regular expression: (a|b)*a
-    val nfa = Nfa(mapOf(
-            0 to mapOf(
-                    null as String? to setOf(1, 7)
-            ),
-            1 to mapOf(
-                    null as String? to setOf(2, 4)
-            ),
-            2 to mapOf(
-                    "a" as String? to setOf(3)
-            ),
-            3 to mapOf(
-                    null as String? to setOf(6)
-            ),
-            4 to mapOf(
-                    "b" as String? to setOf(5)
-            ),
-            5 to mapOf(
-                    null as String? to setOf(6)
-            ),
-            6 to mapOf(
-                    null as String? to setOf(1, 7)
-            ),
-            7 to mapOf(
-                    "a" as String? to setOf(8)
-            ),
-            8 to mapOf()
-    ), 0, setOf(8))
+    val nfa = NfaBuilder<Int, Char, String>(0)
+            .transition(0, null, setOf(1, 7))
+            .transition(1, null, setOf(2, 4))
+            .transition(2, 'a', 3)
+            .transition(3, null, 6)
+            .transition(4, 'b', 5)
+            .transition(5, null, 6)
+            .transition(6, null, setOf(1, 7))
+            .transition(7, 'a', 8)
+            .group(0, 8, "A")
+            .build()
 
-    val expectedDfa = Dfa(mapOf(
-            setOf(0, 1, 2, 4, 7) to mapOf(
-                    "a" to setOf(1, 2, 3, 4, 6, 7, 8),
-                    "b" to setOf(1, 2, 4, 5, 6, 7)
-            ),
-            setOf(1, 2, 3, 4, 6, 7, 8) to mapOf(
-                    "a" to setOf(1, 2, 3, 4, 6, 7, 8),
-                    "b" to setOf(1, 2, 4, 5, 6, 7)
-            ),
-            setOf(1, 2, 4, 5, 6, 7) to mapOf(
-                    "a" to setOf(1, 2, 3, 4, 6, 7, 8),
-                    "b" to setOf(1, 2, 4, 5, 6, 7)
-            )
-    ), setOf(0, 1, 2, 4, 7), setOf(setOf(1, 2, 3, 4, 6, 7, 8)))
+    val expected = DfaBuilder<Set<Int>, Char, String>(setOf(0, 1, 2, 4, 7))
+            .transition(setOf(0, 1, 2, 4, 7), 'a', setOf(1, 2, 3, 4, 6, 7, 8))
+            .transition(setOf(0, 1, 2, 4, 7), 'b', setOf(1, 2, 4, 5, 6, 7))
+            .transition(setOf(1, 2, 3, 4, 6, 7, 8), 'a', setOf(1, 2, 3, 4, 6, 7, 8))
+            .transition(setOf(1, 2, 3, 4, 6, 7, 8), 'b', setOf(1, 2, 4, 5, 6, 7))
+            .transition(setOf(1, 2, 4, 5, 6, 7), 'a', setOf(1, 2, 3, 4, 6, 7, 8))
+            .transition(setOf(1, 2, 4, 5, 6, 7), 'b', setOf(1, 2, 4, 5, 6, 7))
+            .group(setOf(0), setOf(1, 2, 3, 4, 6, 7, 8), "A")
+            .build()
 
-    assertEquals(expectedDfa, nfa.toDfa())
+    assertEquals(expected, nfa.toDfa())
   }
 
   @Test
   fun `non-epsilon NFA to DFA`() {
     // Example from https://www.tutorialspoint.com/automata_theory/ndfa_to_dfa_conversion.htm
-    val nfa = Nfa(mapOf(
-            0 to mapOf(
-                    "a" as String? to setOf(0, 1, 2, 3, 4),
-                    "b" as String? to setOf(3, 4)
-            ),
-            1 to mapOf(
-                    "a" as String? to setOf(2),
-                    "b" as String? to setOf(4)
-            ),
-            2 to mapOf(
-                    "b" as String? to setOf(1)
-            ),
-            3 to mapOf(
-                    "a" as String? to setOf(4)
-            ),
-            4 to mapOf()
-    ), 0, setOf(4))
+    val nfa = NfaBuilder<Int, Char, String>(0)
+            .transition(0, 'a', setOf(0, 1, 2, 3, 4))
+            .transition(0, 'b', setOf(3, 4))
+            .transition(1, 'a', 2)
+            .transition(1, 'b', 4)
+            .transition(2, 'b', 1)
+            .transition(3, 'a', 4)
+            .group(0, 4, "A")
+            .build()
+    val actual = nfa.toDfa()
 
-    val expected = Dfa(mapOf(
-            setOf(0) to mapOf(
-                    "a" to setOf(0, 1, 2, 3, 4),
-                    "b" to setOf(3, 4)
-            ),
-            setOf(0, 1, 2, 3, 4) to mapOf(
-                    "a" to setOf(0, 1, 2, 3, 4),
-                    "b" to setOf(1, 3, 4)
-            ),
-            setOf(3, 4) to mapOf(
-                    "a" to setOf(4)
-            ),
-            setOf(1, 3, 4) to mapOf(
-                    "a" to setOf(2, 4),
-                    "b" to setOf(4)
-            ),
-            setOf(4) to mapOf(),
-            setOf(2, 4) to mapOf(
-                    "b" to setOf(1)
-            ),
-            setOf(1) to mapOf(
-                    "a" to setOf(2),
-                    "b" to setOf(4)
-            ),
-            setOf(2) to mapOf(
-                    "b" to setOf(1)
-            )),
-            setOf(0),
-            setOf(
-                    setOf(0, 1, 2, 3, 4),
-                    setOf(1, 3, 4),
-                    setOf(2, 4),
-                    setOf(3, 4),
-                    setOf(4)))
+    val expected = DfaBuilder<Set<Int>, Char, String>(setOf(0))
+            .transition(setOf(0), 'a', setOf(0, 1, 2, 3, 4))
+            .transition(setOf(0), 'b', setOf(3, 4))
+            .transition(setOf(0, 1, 2, 3, 4), 'a', setOf(0, 1, 2, 3, 4))
+            .transition(setOf(0, 1, 2, 3, 4), 'b', setOf(1, 3, 4))
+            .transition(setOf(3, 4), 'a', setOf(4))
+            .transition(setOf(1, 3, 4), 'a', setOf(2, 4))
+            .transition(setOf(1, 3, 4), 'b', setOf(4))
+            .transition(setOf(2, 4), 'b', setOf(1))
+            .transition(setOf(1), 'a', setOf(2))
+            .transition(setOf(1), 'b', setOf(4))
+            .transition(setOf(2), 'b', setOf(1))
+            .group(setOf(0), setOf(0, 1, 2, 3, 4), "A")
+            .group(setOf(0, 1, 2, 3, 4), setOf(0, 1, 2, 3, 4), "A")
+            .group(setOf(0), setOf(1, 3, 4), "A")
+            .group(setOf(0), setOf(2, 4), "A")
+            .group(setOf(0), setOf(3, 4), "A")
+            .group(setOf(0), setOf(4), "A")
+            .build()
 
-    assertEquals(expected, nfa.toDfa())
+    assertEquals(expected, actual)
   }
 }
