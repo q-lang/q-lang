@@ -23,6 +23,14 @@ data class Dfa<STATE, SYMBOL, TAG>(
         }
       }
     }
+    for (state in groupsStart.keys) {
+      if (state !in states)
+        throw UndefinedStateException("group start state: $state\n$this")
+    }
+    for (state in groupsEnd.keys) {
+      if (state !in states)
+        throw UndefinedStateException("group end state: $state\n$this")
+    }
   }
 
   operator fun get(state: STATE): Map<SYMBOL, STATE> {

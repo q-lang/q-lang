@@ -23,6 +23,14 @@ data class Nfa<STATE, SYMBOL, TAG>(
         }
       }
     }
+    for (state in groupsStart.keys) {
+      if (state !in states)
+        throw UndefinedStateException("group start state: $state\n$this")
+    }
+    for (state in groupsEnd.keys) {
+      if (state !in states)
+        throw UndefinedStateException("group end state: $state\n$this")
+    }
   }
 
   operator fun get(state: STATE): Map<SYMBOL?, Set<STATE>> {
@@ -30,22 +38,18 @@ data class Nfa<STATE, SYMBOL, TAG>(
   }
 
   fun epsilonClosure(states: Set<STATE>): Set<STATE> {
-    var result = states.toMutableSet()
-    for (state in states) {
-      val epsilonTransitions = this[state][null]
-      if (epsilonTransitions != null) {
-        result = result.union(epsilonClosure(epsilonTransitions)).toMutableSet()
+    val result = states.toMutableSet()
+    val stack = states.toMutableList()
+    while (stack.isNotEmpty()) {
+      val startState = stack.removeAt(stack.lastIndex)  // pop
+      val epsilonTransitions = this[startState][null] ?: continue
+      for (endState in epsilonTransitions) {
+        if (endState !in result) {
+          stack.add(endState)
+          result.add(endState)
+        }
       }
     }
-    return result
-  }
-
-  fun epsilonClosure(states: Set<STATE>, cache: MutableMap<Set<STATE>, Set<STATE>>): Set<STATE> {
-    var result = cache[states]
-    if (result != null)
-      return result
-    result = epsilonClosure(states)
-    cache[states] = result
     return result
   }
 
@@ -53,14 +57,8 @@ data class Nfa<STATE, SYMBOL, TAG>(
     return epsilonClosure(setOf(state))
   }
 
-  fun epsilonClosure(state: STATE, cache: MutableMap<Set<STATE>, Set<STATE>>): Set<STATE> {
-    return epsilonClosure(setOf(state), cache)
-  }
-
   fun toDfa(): Dfa<Set<STATE>, SYMBOL, TAG> {
-    val cache: MutableMap<Set<STATE>, Set<STATE>> = mutableMapOf()
-
-    val dfaInitialState = epsilonClosure(initialState, cache)
+    val dfaInitialState = epsilonClosure(initialState)
     val dfaStates = mutableMapOf<Set<STATE>, Map<SYMBOL, Set<STATE>>>()
     val dfaGroupsStart = mutableMapOf<Set<STATE>, Set<TAG>>()
     val dfaGroupsEnd = mutableMapOf<Set<STATE>, Set<TAG>>()
@@ -75,7 +73,7 @@ data class Nfa<STATE, SYMBOL, TAG>(
       for (start in startStates) {
         for ((input, endStates) in this[start]) {
           if (input != null) {
-            transitions[input] = transitions[input].orEmpty().union(epsilonClosure(endStates, cache))
+            transitions[input] = transitions[input].orEmpty().union(epsilonClosure(endStates))
           }
         }
       }
