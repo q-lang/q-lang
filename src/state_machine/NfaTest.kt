@@ -27,21 +27,18 @@ internal class NfaTest {
 
   @Test
   fun NfaBuild() {
-    // check initial state
-    NfaBuilder<Int, Char, String>(0)
-            .transition(0, 'a', 0)
-            .build()
-    assertFailsWith(UndefinedStateException::class) {
-      NfaBuilder<Int, Char, String>(1)
-              .transition(0, 'a', 0)
-              .build()
-    }
-
-    // check final state
     NfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', 0)
             .group(0, 0, "")
             .build()
+
+    assertFailsWith(UndefinedStateException::class) {
+      NfaBuilder<Int, Char, String>(0)
+              .transition(0, 'a', 0)
+              .group(1, 0, "")
+              .build()
+    }
+
     assertFailsWith(UndefinedStateException::class) {
       NfaBuilder<Int, Char, String>(0)
               .transition(0, 'a', 0)
@@ -53,7 +50,7 @@ internal class NfaTest {
   @Test
   fun `epsilon NFA to DFA`() {
     // Epsilon NFA for regular expression: (a|b)*a
-    val nfa = NfaBuilder<Int, Char, String>(0)
+    val actual = NfaBuilder<Int, Char, String>(0)
             .transition(0, null, setOf(1, 7))
             .transition(1, null, setOf(2, 4))
             .transition(2, 'a', 3)
@@ -64,6 +61,7 @@ internal class NfaTest {
             .transition(7, 'a', 8)
             .group(0, 8, "A")
             .build()
+            .toDfa()
 
     val expected = DfaBuilder<Set<Int>, Char, String>(setOf(0, 1, 2, 4, 7))
             .transition(setOf(0, 1, 2, 4, 7), 'a', setOf(1, 2, 3, 4, 6, 7, 8))
@@ -72,16 +70,16 @@ internal class NfaTest {
             .transition(setOf(1, 2, 3, 4, 6, 7, 8), 'b', setOf(1, 2, 4, 5, 6, 7))
             .transition(setOf(1, 2, 4, 5, 6, 7), 'a', setOf(1, 2, 3, 4, 6, 7, 8))
             .transition(setOf(1, 2, 4, 5, 6, 7), 'b', setOf(1, 2, 4, 5, 6, 7))
-            .group(setOf(0), setOf(1, 2, 3, 4, 6, 7, 8), "A")
+            .group(setOf(0, 1, 2, 4, 7), setOf(1, 2, 3, 4, 6, 7, 8), "A")
             .build()
 
-    assertEquals(expected, nfa.toDfa())
+    assertEquals(expected, actual)
   }
 
   @Test
   fun `non-epsilon NFA to DFA`() {
     // Example from https://www.tutorialspoint.com/automata_theory/ndfa_to_dfa_conversion.htm
-    val nfa = NfaBuilder<Int, Char, String>(0)
+    val actual = NfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', setOf(0, 1, 2, 3, 4))
             .transition(0, 'b', setOf(3, 4))
             .transition(1, 'a', 2)
@@ -90,7 +88,7 @@ internal class NfaTest {
             .transition(3, 'a', 4)
             .group(0, 4, "A")
             .build()
-    val actual = nfa.toDfa()
+            .toDfa()
 
     val expected = DfaBuilder<Set<Int>, Char, String>(setOf(0))
             .transition(setOf(0), 'a', setOf(0, 1, 2, 3, 4))

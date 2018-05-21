@@ -35,11 +35,18 @@ internal class DfaTest {
 
   @Test
   fun DfaBuild() {
-    // check final state
     DfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', 0)
             .group(0, 0, "")
             .build()
+
+    assertFailsWith(UndefinedStateException::class) {
+      DfaBuilder<Int, Char, String>(0)
+              .transition(0, 'a', 0)
+              .group(1, 0, "")
+              .build()
+    }
+
     assertFailsWith(UndefinedStateException::class) {
       DfaBuilder<Int, Char, String>(0)
               .transition(0, 'a', 0)
