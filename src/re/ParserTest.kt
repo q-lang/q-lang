@@ -1,4 +1,4 @@
-package regex
+package re
 
 import org.testng.annotations.Test
 import state_machine.NfaBuilder
@@ -11,7 +11,7 @@ internal class ParserTest {
     val actual = Parser("""a""").parse()
     val expected = NfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', 1)
-            .group(0, 1, "")
+            .tag(Parser.MAIN_GROUP, 0, 1)
             .build()
     assertEquals(expected, actual)
   }
@@ -23,7 +23,7 @@ internal class ParserTest {
             .transition(0, 'a', 1)
             .transition(1, 'b', 2)
             .transition(2, 'c', 3)
-            .group(0, 3, "")
+            .tag(Parser.MAIN_GROUP, 0, 3)
             .build()
     assertEquals(expected, actual)
   }
@@ -36,7 +36,7 @@ internal class ParserTest {
             .transition(1, 'b', 2)
             .transition(1, null, 2)
             .transition(2, 'c', 3)
-            .group(0, 3, "")
+            .tag(Parser.MAIN_GROUP, 0, 3)
             .build()
     assertEquals(expected, actual)
   }
@@ -48,8 +48,9 @@ internal class ParserTest {
             .transition(0, 'a', 1)
             .transition(1, 'b', 2)
             .transition(2, null, 1)
-            .transition(2, 'c', 3)
-            .group(0, 3, "")
+            .transition(2, null, 3)
+            .transition(3, 'c', 4)
+            .tag(Parser.MAIN_GROUP, 0, 4)
             .build()
     assertEquals(expected, actual)
   }
@@ -60,10 +61,11 @@ internal class ParserTest {
     val expected = NfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', 1)
             .transition(1, 'b', 2)
-            .transition(1, null, 2)
+            .transition(2, null, 3)
             .transition(2, null, 1)
-            .transition(2, 'c', 3)
-            .group(0, 3, "")
+            .transition(1, null, 3)
+            .transition(3, 'c', 4)
+            .tag(Parser.MAIN_GROUP, 0, 4)
             .build()
     assertEquals(expected, actual)
   }
@@ -81,7 +83,7 @@ internal class ParserTest {
             .transition(2, null, 7)
             .transition(4, null, 7)
             .transition(6, null, 7)
-            .group(0, 7, "")
+            .tag(Parser.MAIN_GROUP, 0, 7)
             .build()
     assertEquals(expected, actual)
   }
@@ -102,7 +104,7 @@ internal class ParserTest {
             .transition(6, 'f', 8)
             .transition(7, null, 9)
             .transition(8, null, 9)
-            .group(0, 9, "")
+            .tag(Parser.MAIN_GROUP, 0, 9)
             .build()
     assertEquals(expected, actual)
   }
@@ -114,7 +116,7 @@ internal class ParserTest {
             .transition(0, 'a', 1)
             .transition(0, 'b', 1)
             .transition(0, 'c', 1)
-            .group(0, 1, "")
+            .tag(Parser.MAIN_GROUP, 0, 1)
             .build()
     assertEquals(expected, actual)
   }
@@ -126,7 +128,7 @@ internal class ParserTest {
             .transition(0, 'a', 1)
             .transition(0, 'b', 1)
             .transition(0, 'c', 1)
-            .group(0, 1, "")
+            .tag(Parser.MAIN_GROUP, 0, 1)
             .build()
     assertEquals(expected, actual)
   }
@@ -137,7 +139,7 @@ internal class ParserTest {
     val expected = NfaBuilder<Int, Char, String>(0)
             .transition(0, '-', 1)
             .transition(0, 'c', 1)
-            .group(0, 1, "")
+            .tag(Parser.MAIN_GROUP, 0, 1)
             .build()
     assertEquals(expected, actual)
   }
@@ -160,7 +162,7 @@ internal class ParserTest {
             .transition(7, '\n', 8)
             .transition(7, '\r', 8)
             .transition(7, '\t', 8)
-            .group(0, 8, "")
+            .tag(Parser.MAIN_GROUP, 0, 8)
             .build()
     assertEquals(expected, actual)
   }
@@ -182,7 +184,7 @@ internal class ParserTest {
             .transition(10, ')', 11)
             .transition(11, '{', 12)
             .transition(12, '}', 13)
-            .group(0, 13, "")
+            .tag(Parser.MAIN_GROUP, 0, 13)
             .build()
     assertEquals(expected, actual)
   }
@@ -199,7 +201,7 @@ internal class ParserTest {
             .transition(1, '\n', 3)
             .transition(1, '\r', 4)
             .transition(4, '\n', 3)
-            .group(0, 3, "")
+            .tag(Parser.MAIN_GROUP, 0, 3)
             .build()
     assertEquals(expected, actual)
   }
@@ -213,7 +215,7 @@ internal class ParserTest {
             .transition(2, '*', 3)
             .transition(3, '@', 4)
             .transition(4, '*', 5)
-            .group(0, 5, "")
+            .tag(Parser.MAIN_GROUP, 0, 5)
             .build()
     println(expected)
     println(actual)
@@ -228,7 +230,7 @@ internal class ParserTest {
             .transition(1, '*', 2)
             .transition(2, '*', 3)
             .transition(3, '*', 4)
-            .group(0, 4, "")
+            .tag(Parser.MAIN_GROUP, 0, 4)
             .build()
     println(expected)
     println(actual)
@@ -243,7 +245,7 @@ internal class ParserTest {
             .transition(1, 0xAC.toChar(), 2)
             .transition(2, 0x20.toChar(), 3)
             .transition(3, 0xAC.toChar(), 4)
-            .group(0, 4, "")
+            .tag(Parser.MAIN_GROUP, 0, 4)
             .build()
     println(expected)
     println(actual)
@@ -267,7 +269,7 @@ internal class ParserTest {
             .transition(10, ')', 11)
             .transition(11, '{', 12)
             .transition(12, '}', 13)
-            .group(0, 13, "")
+            .tag(Parser.MAIN_GROUP, 0, 13)
             .build()
     println(expected)
     println(actual)
@@ -297,7 +299,7 @@ internal class ParserTest {
       builder.transition(1, c, 2)
     }
     val expected = builder
-            .group(0, 2, "")
+            .tag(Parser.MAIN_GROUP, 0, 2)
             .build()
     assertEquals(expected, actual)
   }
@@ -315,7 +317,7 @@ internal class ParserTest {
       builder.transition(1, c.toUpperCase(), 2)
     }
     val expected = builder
-            .group(0, 2, "")
+            .tag(Parser.MAIN_GROUP, 0, 2)
             .build()
     assertEquals(expected, actual)
   }
@@ -336,7 +338,7 @@ internal class ParserTest {
             .transition(1, '\n', 2)
             .transition(1, 0x0b.toChar(), 2)
             .transition(1, 0x0c.toChar(), 2)
-            .group(0, 2, "")
+            .tag(Parser.MAIN_GROUP, 0, 2)
             .build()
     assertEquals(expected, actual)
   }
@@ -353,7 +355,7 @@ internal class ParserTest {
             .transition(5, '0', 6)
             .transition(6, ',', 7)
             .transition(7, '2', 8)
-            .group(0, 8, "")
+            .tag(Parser.MAIN_GROUP, 0, 8)
             .build()
     println(expected)
     println(actual)
@@ -369,7 +371,7 @@ internal class ParserTest {
             .transition(2, 'b', 3)
             .transition(3, 'b', 4)
             .transition(4, 'c', 5)
-            .group(0, 5, "")
+            .tag(Parser.MAIN_GROUP, 0, 5)
             .build()
     println(expected)
     println(actual)
@@ -387,26 +389,10 @@ internal class ParserTest {
             .transition(3, null, 4)
             .transition(3, 'b', 4)
             .transition(4, 'c', 5)
-            .group(0, 5, "")
+            .tag(Parser.MAIN_GROUP, 0, 5)
             .build()
     println(expected)
     println(actual)
-    assertEquals(expected, actual)
-  }
-
-  @Test
-  fun mixed() {
-    val actual = Parser("""(a|b)*a""").parse()
-    val expected = NfaBuilder<Int, Char, String>(0)
-            .transition(0, 'a', 1)
-            .transition(0, 'b', 2)
-            .transition(1, null, 3)
-            .transition(2, null, 3)
-            .transition(0, null, 3)
-            .transition(3, null, 0)
-            .transition(3, 'a', 4)
-            .group(0, 4, "")
-            .build()
     assertEquals(expected, actual)
   }
 
@@ -416,9 +402,9 @@ internal class ParserTest {
     val expected = NfaBuilder<Int, Char, String>(0)
             .transition(0, 'a', 1)
             .transition(1, 'b', 2)
-            .group(0, 1, "G1")
-            .group(1, 2, "G2")
-            .group(0, 2, "")
+            .tag("G1", 0, 1)
+            .tag("G2", 1, 2)
+            .tag(Parser.MAIN_GROUP, 0, 2)
             .build()
     assertEquals(expected, actual)
   }

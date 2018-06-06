@@ -1,11 +1,11 @@
-package regex
+package re
 
 import state_machine.Nfa
 import state_machine.NfaBuilder
 
 data class Parser(val pattern: String) {
   companion object {
-    const val MAIN_GROUP = ""
+    const val MAIN_GROUP = "0"
   }
 
   var idx = 0
@@ -44,6 +44,7 @@ data class Parser(val pattern: String) {
     next()
   }
 
+  // TODO: make this function also create the transition so the new state is always created
   fun newState(): Int {
     return nfaBuilder.states.size
   }
@@ -53,104 +54,125 @@ data class Parser(val pattern: String) {
       throw IllegalArgumentException("pattern cannot be empty")
     idx = 0
     nfaBuilder = NfaBuilder(0)
-    nfaBuilder.group(0, expression(0), MAIN_GROUP)
+    nfaBuilder.tag(MAIN_GROUP, 0, expression(0))
     return nfaBuilder.build()
   }
 
-  fun expression(startState: Int): Int {
+  fun expression(start: Int): Int {
     val choices = mutableListOf<Int>()
 
     do {
-      choices.add(sequence(startState))
+      choices.add(sequence(start))
     } while (more() && accept('|'))
 
     if (choices.size == 1)
       return choices[0]
 
-    val endState = newState()
+    val end = newState()
     for (choice in choices)
-      nfaBuilder.transition(choice, null, endState)
-    return endState
+      nfaBuilder.transition(choice, null, end)
+    return end
   }
 
-  fun sequence(startState: Int): Int {
-    var startState = startState
-    var endState = startState
+  fun sequence(start: Int): Int {
+    var start = start
+    var end = start
     while (peek() != null && peek()!! !in ")]|") {
-      endState = quantifier(startState)
-      startState = endState
+      end = quantifier(start)
+      start = end
     }
-    return endState
+    return end
   }
 
-  fun quantifier(startState: Int): Int {
-    val endState = atom(startState)
+  fun quantifier(start: Int): Int {
+    var end = atom(start)
     if (more()) {
       when (peek()) {
         '?' -> {
-          nfaBuilder.transition(startState, null, endState)
+          /*  .?
+           *  start -i-> end
+           *    +--------^
+           */
+          nfaBuilder.transition(start, null, end)
           next()
         }
+
         '+' -> {
-          nfaBuilder.transition(endState, null, startState)
+          /*  .+
+           *  start -i-> end ---> new
+           *    ^---------+
+           */
+          val new = newState()
+          nfaBuilder.transition(end, null, new)
+          nfaBuilder.transition(end, null, start)
+          end = new
           next()
         }
+
         '*' -> {
-          nfaBuilder.transition(startState, null, endState)
-          nfaBuilder.transition(endState, null, startState)
+          /*  .*
+           *  start -i-> end ---> new
+           *    \ ^-------+      /^
+           *     +--------------+
+           */
+          val new = newState()
+          nfaBuilder.transition(end, null, new)
+          nfaBuilder.transition(end, null, start)
+          nfaBuilder.transition(start, null, new)
+          end = new
           next()
         }
+
         '{' -> throw NotImplementedError("a{n}, a{n,}, a{n,m}")
       }
     }
-    return endState
+    return end
   }
 
-  fun atom(startState: Int): Int {
-    var endState = startState
+  fun atom(start: Int): Int {
+    var end = start
     when (peek()) {
       '(' -> {
         val openParenthesisIdx = idx
         expect('(')
-        endState = capture_group(startState)
+        end = capture_group(start)
         expect(')', UnmatchedOpeningParenthesisError(pattern, openParenthesisIdx))
       }
 
-      '[' -> endState = character_class(startState)
+      '[' -> end = character_class(start)
 
       '^', '$', '.' -> throw NotImplementedError("atom ${peek()}")
 
-      '?', '+', '*', ')', ']', '|' -> return endState
+      '?', '+', '*', ')', ']', '|' -> return end
 
-      else -> endState = character(startState)
+      else -> end = character(start)
     }
-    return endState
+    return end
   }
 
-  fun character_class(startState: Int): Int {
-    val endState = newState()
+  fun character_class(start: Int): Int {
+    val end = newState()
     expect('[')
     var c = peek()
     while (c != null && c != ']') {
-      character(startState, endState)
+      character(start, end)
       if (peek(0) == '-' && peek(1) != ']') {
         expect('-')
-        val start = c.toInt() + 1
-        val end = peek()!!.toInt()
+        val startChar = c.toInt() + 1
+        val endChar = peek()!!.toInt()
         if (start > end)
           throw InvalidCharacterClassRange(pattern, idx)
-        for (i in start..end)
-          nfaBuilder.transition(startState, i.toChar(), endState)
+        for (i in startChar..endChar)
+          nfaBuilder.transition(start, i.toChar(), end)
       }
       c = peek()
     }
     expect(']', UnmatchedOpeningSquareBracketError(pattern, idx))
-    return endState
+    return end
   }
 
-
-  fun character(startState: Int, finalState: Int? = null): Int {
-    val endState = finalState ?: newState()
+  fun character(start: Int, finalState: Int? = null): Int {
+    val end = finalState ?: newState()
     when (peek()) {
       '\\' -> {
         expect('\\')
@@ -159,58 +181,58 @@ data class Parser(val pattern: String) {
           null -> throw DanglingBackslashError(pattern, idx - 1)
 
         // escape characters
-          '0' -> nfaBuilder.transition(startState, 0.toChar(), endState)
-          'a' -> nfaBuilder.transition(startState, 0x07.toChar(), endState)
-          'e' -> nfaBuilder.transition(startState, 0x1a.toChar(), endState)
-          'f' -> nfaBuilder.transition(startState, 0x0c.toChar(), endState)
-          'n' -> nfaBuilder.transition(startState, '\n', endState)
-          'r' -> nfaBuilder.transition(startState, '\r', endState)
-          't' -> nfaBuilder.transition(startState, '\t', endState)
+          '0' -> nfaBuilder.transition(start, 0.toChar(), end)
+          'a' -> nfaBuilder.transition(start, 0x07.toChar(), end)
+          'e' -> nfaBuilder.transition(start, 0x1a.toChar(), end)
+          'f' -> nfaBuilder.transition(start, 0x0c.toChar(), end)
+          'n' -> nfaBuilder.transition(start, '\n', end)
+          'r' -> nfaBuilder.transition(start, '\r', end)
+          't' -> nfaBuilder.transition(start, '\t', end)
 
         // line break
           'R' -> {
-            nfaBuilder.transition(startState, '\r', endState)
-            nfaBuilder.transition(startState, '\n', endState)
+            nfaBuilder.transition(start, '\r', end)
+            nfaBuilder.transition(start, '\n', end)
             val midState = newState()
-            nfaBuilder.transition(startState, '\r', midState)
-            nfaBuilder.transition(midState, '\n', endState)
+            nfaBuilder.transition(start, '\r', midState)
+            nfaBuilder.transition(midState, '\n', end)
           }
 
         // shorthands
           'd' -> {
             // [0-9]
             for (c in '0'..'9')
-              nfaBuilder.transition(startState, c, endState)
+              nfaBuilder.transition(start, c, end)
           }
           'w' -> {
             // [_a-zA-Z0-9]
-            nfaBuilder.transition(startState, '_', endState)
+            nfaBuilder.transition(start, '_', end)
             for (c in 'a'..'z') {
-              nfaBuilder.transition(startState, c, endState)
-              nfaBuilder.transition(startState, c.toUpperCase(), endState)
+              nfaBuilder.transition(start, c, end)
+              nfaBuilder.transition(start, c.toUpperCase(), end)
             }
           }
           's' -> {
             // [ \t\r\n\f]
-            nfaBuilder.transition(startState, ' ', endState)
-            nfaBuilder.transition(startState, '\t', endState)
-            nfaBuilder.transition(startState, '\r', endState)
-            nfaBuilder.transition(startState, '\n', endState)
-            nfaBuilder.transition(startState, 0x0b.toChar(), endState)
-            nfaBuilder.transition(startState, 0x0c.toChar(), endState)
+            nfaBuilder.transition(start, ' ', end)
+            nfaBuilder.transition(start, '\t', end)
+            nfaBuilder.transition(start, '\r', end)
+            nfaBuilder.transition(start, '\n', end)
+            nfaBuilder.transition(start, 0x0b.toChar(), end)
+            nfaBuilder.transition(start, 0x0c.toChar(), end)
           }
 
-          else -> nfaBuilder.transition(startState, peek(), endState)
+          else -> nfaBuilder.transition(start, peek(), end)
         }
       }
 
-      else -> nfaBuilder.transition(startState, peek(), endState)
+      else -> nfaBuilder.transition(start, peek(), end)
     }
     next()
-    return endState
+    return end
   }
 
-  fun capture_group(startState: Int): Int {
+  fun capture_group(start: Int): Int {
     val groupName: String
     if (accept('?')) {
       val openCaptureGroupIdx = idx
@@ -238,8 +260,12 @@ data class Parser(val pattern: String) {
     }
     groupIndex++
 
-    val endState = expression(startState)
-    nfaBuilder.group(startState, endState, groupName)
-    return endState
+    val groupStart = newState()
+    nfaBuilder.transition(start, null, groupStart)
+    val groupEnd = expression(groupStart)
+    val end = newState()
+    nfaBuilder.transition(groupEnd, null, end)
+    nfaBuilder.tag(groupName, start, groupEnd)
+    return end
   }
 }
