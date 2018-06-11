@@ -1,3 +1,3 @@
-package state_machine
+package automaton
 
 class UndefinedStateException(message: String) : Exception(message)
