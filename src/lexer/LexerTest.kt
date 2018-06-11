@@ -57,7 +57,6 @@ internal class LexerTest {
       |helloworld
       |hello42  42world""".trimMargin()
     val actual = lex.tokenize(text).toList()
-    val seq = lex.tokenize(text)
     val expected = listOf(
             Token("hello", "hello", 0, 0),
             Token("word", "helloworld", 1, 0),
