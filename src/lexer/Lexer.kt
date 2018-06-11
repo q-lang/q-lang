@@ -1,8 +1,7 @@
 package lexer
 
 import io.File
-import re.Parser
-import re.RegularExpression
+import re.Regex
 import java.io.StringReader
 import kotlin.coroutines.experimental.buildSequence
 
@@ -16,7 +15,8 @@ data class Lexer(
         val ignore_pattern: String = """\s+""",
         val EOF: String = "<EOF>") {
 
-  private val regex: RegularExpression
+  val regex: Regex
+  val ignoreGroup: String = "1"
 
   init {
     val duplicates = vocabulary.keys.intersect(keywords)
@@ -39,15 +39,15 @@ data class Lexer(
     for (symbol in keywords)
       groups += "(?<$symbol>$symbol)"
     val pattern = groups.joinToString("|")
-    regex = RegularExpression(pattern)
+    regex = Regex(pattern)
 
     val endStateToTags = mutableMapOf<Int, Set<String>>()
-    for ((tagName, tag) in regex.dfa.tags)
+    for ((tagName, tag) in regex.fsm.tags)
       endStateToTags[tag.end] = endStateToTags[tag.end].orEmpty().union(setOf(tagName))
 
-    val mainEndState = setOf(regex.dfa.tags[Parser.MAIN_GROUP]!!.end)
-    val keywordsEndStates = keywords.map { regex.dfa.tags[it]!!.end }.toSet()
-    for (state in regex.dfa.states.keys) {
+    val mainEndState = setOf(regex.fsm.tags[re.MAIN_GROUP]!!.end)
+    val keywordsEndStates = keywords.map { regex.fsm.tags[it]!!.end }.toSet()
+    for (state in regex.fsm.dfaStates.keys) {
       val possibleEndStates = endStateToTags.keys.intersect(state) - mainEndState - keywordsEndStates
       if (possibleEndStates.size > 1) {
         val ambiguousTags = possibleEndStates.map { endStateToTags[it]!! }.flatten().toSet()
@@ -74,8 +74,8 @@ data class Lexer(
         }
 
         assert(matched != null)
-        // If it's not the group for ignore_pattern (1), yield that result
-        if (matched!! != "1")
+        // If it's not the group for ignore_pattern, yield that result
+        if (matched!! != ignoreGroup)
           yield(Token(matched, line.slice(match.start until match.end), row, match.start))
         lastEnd = match.end
       }

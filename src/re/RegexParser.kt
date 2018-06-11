@@ -1,16 +1,12 @@
 package re
 
-import state_machine.Nfa
-import state_machine.NfaBuilder
+import automaton.FiniteStateMachine
 
-data class Parser(val pattern: String) {
-  companion object {
-    const val MAIN_GROUP = "0"
-  }
+internal class RegexParser(val pattern: String) {
 
   var idx = 0
   var groupIndex = 1
-  var nfaBuilder = NfaBuilder<Int, Char, String>(0)
+  var fsm = FiniteStateMachine.Builder<Int, Char, String>(0)
 
   fun more(): Boolean {
     return idx < pattern.length
@@ -46,16 +42,16 @@ data class Parser(val pattern: String) {
 
   // TODO: make this function also create the transition so the new state is always created
   fun newState(): Int {
-    return nfaBuilder.states.size
+    return fsm.states.size
   }
 
-  fun parse(): Nfa<Int, Char, String> {
+  fun parse(): FiniteStateMachine<Int, Char, String> {
     if (pattern.isEmpty())
       throw IllegalArgumentException("pattern cannot be empty")
     idx = 0
-    nfaBuilder = NfaBuilder(0)
-    nfaBuilder.tag(MAIN_GROUP, 0, expression(0))
-    return nfaBuilder.build()
+    fsm = FiniteStateMachine.Builder(0)
+    fsm.tag(MAIN_GROUP, 0, expression(0))
+    return fsm.build()
   }
 
   fun expression(start: Int): Int {
@@ -70,7 +66,7 @@ data class Parser(val pattern: String) {
 
     val end = newState()
     for (choice in choices)
-      nfaBuilder.transition(choice, null, end)
+      fsm.transition(choice, null, end)
     return end
   }
 
@@ -93,7 +89,7 @@ data class Parser(val pattern: String) {
            *  start -i-> end
            *    +--------^
            */
-          nfaBuilder.transition(start, null, end)
+          fsm.transition(start, null, end)
           next()
         }
 
@@ -103,8 +99,8 @@ data class Parser(val pattern: String) {
            *    ^---------+
            */
           val new = newState()
-          nfaBuilder.transition(end, null, new)
-          nfaBuilder.transition(end, null, start)
+          fsm.transition(end, null, new)
+          fsm.transition(end, null, start)
           end = new
           next()
         }
@@ -116,9 +112,9 @@ data class Parser(val pattern: String) {
            *     +--------------+
            */
           val new = newState()
-          nfaBuilder.transition(end, null, new)
-          nfaBuilder.transition(end, null, start)
-          nfaBuilder.transition(start, null, new)
+          fsm.transition(end, null, new)
+          fsm.transition(end, null, start)
+          fsm.transition(start, null, new)
           end = new
           next()
         }
@@ -163,7 +159,7 @@ data class Parser(val pattern: String) {
         if (start > end)
           throw InvalidCharacterClassRange(pattern, idx)
         for (i in startChar..endChar)
-          nfaBuilder.transition(start, i.toChar(), end)
+          fsm.transition(start, i.toChar(), end)
       }
       c = peek()
     }
@@ -181,52 +177,52 @@ data class Parser(val pattern: String) {
           null -> throw DanglingBackslashError(pattern, idx - 1)
 
         // escape characters
-          '0' -> nfaBuilder.transition(start, 0.toChar(), end)
-          'a' -> nfaBuilder.transition(start, 0x07.toChar(), end)
-          'e' -> nfaBuilder.transition(start, 0x1a.toChar(), end)
-          'f' -> nfaBuilder.transition(start, 0x0c.toChar(), end)
-          'n' -> nfaBuilder.transition(start, '\n', end)
-          'r' -> nfaBuilder.transition(start, '\r', end)
-          't' -> nfaBuilder.transition(start, '\t', end)
+          '0' -> fsm.transition(start, 0.toChar(), end)
+          'a' -> fsm.transition(start, 0x07.toChar(), end)
+          'e' -> fsm.transition(start, 0x1a.toChar(), end)
+          'f' -> fsm.transition(start, 0x0c.toChar(), end)
+          'n' -> fsm.transition(start, '\n', end)
+          'r' -> fsm.transition(start, '\r', end)
+          't' -> fsm.transition(start, '\t', end)
 
         // line break
           'R' -> {
-            nfaBuilder.transition(start, '\r', end)
-            nfaBuilder.transition(start, '\n', end)
+            fsm.transition(start, '\r', end)
+            fsm.transition(start, '\n', end)
             val midState = newState()
-            nfaBuilder.transition(start, '\r', midState)
-            nfaBuilder.transition(midState, '\n', end)
+            fsm.transition(start, '\r', midState)
+            fsm.transition(midState, '\n', end)
           }
 
         // shorthands
           'd' -> {
             // [0-9]
             for (c in '0'..'9')
-              nfaBuilder.transition(start, c, end)
+              fsm.transition(start, c, end)
           }
           'w' -> {
             // [_a-zA-Z0-9]
-            nfaBuilder.transition(start, '_', end)
+            fsm.transition(start, '_', end)
             for (c in 'a'..'z') {
-              nfaBuilder.transition(start, c, end)
-              nfaBuilder.transition(start, c.toUpperCase(), end)
+              fsm.transition(start, c, end)
+              fsm.transition(start, c.toUpperCase(), end)
             }
           }
           's' -> {
             // [ \t\r\n\f]
-            nfaBuilder.transition(start, ' ', end)
-            nfaBuilder.transition(start, '\t', end)
-            nfaBuilder.transition(start, '\r', end)
-            nfaBuilder.transition(start, '\n', end)
-            nfaBuilder.transition(start, 0x0b.toChar(), end)
-            nfaBuilder.transition(start, 0x0c.toChar(), end)
+            fsm.transition(start, ' ', end)
+            fsm.transition(start, '\t', end)
+            fsm.transition(start, '\r', end)
+            fsm.transition(start, '\n', end)
+            fsm.transition(start, 0x0b.toChar(), end)
+            fsm.transition(start, 0x0c.toChar(), end)
           }
 
-          else -> nfaBuilder.transition(start, peek(), end)
+          else -> fsm.transition(start, peek(), end)
         }
       }
 
-      else -> nfaBuilder.transition(start, peek(), end)
+      else -> fsm.transition(start, peek(), end)
     }
     next()
     return end
@@ -261,11 +257,11 @@ data class Parser(val pattern: String) {
     groupIndex++
 
     val groupStart = newState()
-    nfaBuilder.transition(start, null, groupStart)
+    fsm.transition(start, null, groupStart)
     val groupEnd = expression(groupStart)
     val end = newState()
-    nfaBuilder.transition(groupEnd, null, end)
-    nfaBuilder.tag(groupName, start, groupEnd)
+    fsm.transition(groupEnd, null, end)
+    fsm.tag(groupName, start, groupEnd)
     return end
   }
 }

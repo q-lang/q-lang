@@ -3,17 +3,17 @@ package re
 import org.testng.annotations.Test
 import kotlin.test.assertEquals
 
-internal class RegularExpressionTest {
+internal class RegexTest {
   val text_negative = "--"
 
-  val regex = RegularExpression("""(abc)|([abc]+)""")
+  val regex = Regex("""(abc)|([abc]+)""")
   val text = "--abcaba-abcaba-abcaba--"
 
-  val regex_groups = RegularExpression("""(a+)(b+((c+)d+))""")
-  val regex_named_groups = RegularExpression("""(?<A>a+)(?<BCD>b+(?<CD>(?<C>c+)d+))""")
+  val regex_groups = Regex("""(a+)(b+((c+)d+))""")
+  val regex_named_groups = Regex("""(?<A>a+)(?<BCD>b+(?<CD>(?<C>c+)d+))""")
   val text_groups = "--abcdaabbccdd-aaabbbcccddd--"
 
-  val regex_final_tags = RegularExpression("""((abc)+)""")
+  val regex_final_tags = Regex("""((abc)+)""")
   val text_final_tags = "--abcabcabc--"
 
   // Tests  (* can be any of ?, +. *, {2}, {2,3})
