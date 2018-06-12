@@ -14,16 +14,11 @@ data class FiniteStateMachine<STATE, SYMBOL, TAG>(
     val states: MutableMap<STATE, Map<SYMBOL?, Set<STATE>>> = mutableMapOf(initialState to mapOf())
     val tags: MutableMap<TAG, Group<STATE>> = mutableMapOf()
 
-    fun transition(start: STATE, input: SYMBOL?, endStates: Set<STATE>) = apply {
-      val trans = states[start].orEmpty().toMutableMap()
-      trans[input] = trans[input].orEmpty().union(endStates)
-      states[start] = trans
-      for (end in endStates)
-        states[end] = states[end].orEmpty()
-    }
-
     fun transition(start: STATE, input: SYMBOL?, end: STATE) = apply {
-      transition(start, input, setOf(end))
+      val trans = states[start].orEmpty().toMutableMap()
+      trans[input] = trans[input].orEmpty().union(setOf(end))
+      states[start] = trans
+      states[end] = states[end].orEmpty()
     }
 
     fun tag(tag: TAG, start: STATE, end: STATE) = apply {
