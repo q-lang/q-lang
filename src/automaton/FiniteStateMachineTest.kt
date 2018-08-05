@@ -65,8 +65,13 @@ internal class FiniteStateMachineTest {
   fun `non-epsilon NFA to DFA`() {
     // Example from https://www.tutorialspoint.com/automata_theory/ndfa_to_dfa_conversion.htm
     val actual = FiniteStateMachine.Builder<Int, Char, String>(0)
-            .transition(0, 'a', setOf(0, 1, 2, 3, 4))
-            .transition(0, 'b', setOf(3, 4))
+            .transition(0, 'a', 0)
+            .transition(0, 'a', 1)
+            .transition(0, 'a', 2)
+            .transition(0, 'a', 3)
+            .transition(0, 'a', 4)
+            .transition(0, 'b', 3)
+            .transition(0, 'b', 4)
             .transition(1, 'a', 2)
             .transition(1, 'b', 4)
             .transition(2, 'b', 1)
