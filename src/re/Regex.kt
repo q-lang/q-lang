@@ -6,17 +6,25 @@ import kotlin.coroutines.experimental.buildSequence
 internal const val MAIN_GROUP = "0"
 
 data class Regex(val pattern: String, val eof: Char = 0.toChar()) {
-  val fsm: FiniteStateMachine<Int, Char, String> = RegexParser(pattern).parse()
+  val fsm: FiniteStateMachine<Int, Char> = RegexParser(pattern).parse()
 
-  fun match(text: String) = buildSequence {
-    for (tags in fsm.evaluate((text + eof).asSequence())) {
-      val mainTag = tags[MAIN_GROUP]!!
-      val groups = mutableMapOf<String, Group>()
-      for ((tagName, tag) in tags) {
-        if (tagName != MAIN_GROUP)
-          groups[tagName] = Group(tag.start, tag.end)
-      }
-      yield(Match(mainTag.start, mainTag.end, groups))
+  private fun makeMatch(result: Map<String, automaton.Match>): Match {
+    val mainGroup = result[MAIN_GROUP]!!
+    val groups = mutableMapOf<String, Group>()
+    for ((name, match) in result) {
+      if (name != MAIN_GROUP)
+        groups[name] = Group(match.start, match.end)
     }
+    return Match(mainGroup.start, mainGroup.end, groups)
+  }
+
+  fun match(text: String): Match? {
+    val result = fsm.evaluate((text + eof).asSequence()) ?: return null
+    return makeMatch(result)
+  }
+
+  fun matches(text: String) = buildSequence {
+    for (result in fsm.evaluateAll((text + eof).asSequence()))
+      yield(makeMatch(result))
   }
 }

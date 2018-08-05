@@ -16,7 +16,29 @@ data class Lexer(
         val EOF: String = "<EOF>") {
 
   val regex: Regex
-  val ignoreGroup: String = "1"
+  val tags: MutableMap<String, String> = mutableMapOf()
+  val symbols: MutableMap<String, String> = mutableMapOf()
+  val ignoreGroup: String = "<IGNORE>"
+  val ignoreTag = "I${tags.size}"
+
+  class Builder(val ignore_pattern: String = """\s+""", val EOF: String = "<EOF>") {
+    val vocabulary: MutableMap<String, String> = mutableMapOf()
+    val keywords: MutableSet<String> = mutableSetOf()
+
+    fun rule(name: String, patterns: List<String>) = apply {
+      rule(name, patterns.joinToString("|"))
+    }
+
+    fun rule(name: String, pattern: String) = apply {
+      vocabulary[name] = pattern
+    }
+
+    fun keyword(name: String) = apply {
+      keywords.add(name)
+    }
+
+    fun build() = Lexer(vocabulary, keywords, ignore_pattern, EOF)
+  }
 
   init {
     val duplicates = vocabulary.keys.intersect(keywords)
@@ -33,21 +55,37 @@ data class Lexer(
         throw EmptySymbolName()
     }
 
-    val groups = mutableListOf("($ignore_pattern)")
-    for ((symbol, symbol_pattern) in vocabulary)
-      groups += "(?<$symbol>$symbol_pattern)"
-    for (symbol in keywords)
-      groups += "(?<$symbol>$symbol)"
-    val pattern = groups.joinToString("|")
-    regex = Regex(pattern)
+    tags[ignoreGroup] = ignoreTag
+    symbols[ignoreTag] = ignoreGroup
+    val patternGroups = mutableListOf("(?<$ignoreTag>$ignore_pattern)")
+
+    for ((symbol, pattern) in vocabulary) {
+      val tag = "R${tags.size}"
+      tags[symbol] = tag
+      symbols[tag] = symbol
+      patternGroups += "(?<$tag>$pattern)"
+    }
+    for (symbol in keywords) {
+      val tag = "K${tags.size}"
+      tags[symbol] = tag
+      symbols[tag] = symbol
+      var pattern = ""
+      for (c in symbol)
+        pattern += if (c.isLetterOrDigit()) "$c" else "\\$c"
+      patternGroups += "(?<$tag>$pattern)"
+    }
+    regex = Regex(patternGroups.joinToString("|"))
 
     val endStateToTags = mutableMapOf<Int, Set<String>>()
-    for ((tagName, tag) in regex.fsm.tags)
-      endStateToTags[tag.end] = endStateToTags[tag.end].orEmpty().union(setOf(tagName))
+    for ((tagName, group) in regex.fsm.groups) {
+      if (tagName[0].isDigit())
+        continue
+      endStateToTags[group.end] = endStateToTags[group.end].orEmpty().union(setOf(tagName))
+    }
 
-    val mainEndState = setOf(regex.fsm.tags[re.MAIN_GROUP]!!.end)
-    val keywordsEndStates = keywords.map { regex.fsm.tags[it]!!.end }.toSet()
-    for (state in regex.fsm.dfaStates.keys) {
+    val mainEndState = setOf(regex.fsm.groups[re.MAIN_GROUP]!!.end)
+    val keywordsEndStates = keywords.map { regex.fsm.groups[tags[it]]!!.end }.toSet()
+    for (state in regex.fsm.dfa.vertices.keys) {
       val possibleEndStates = endStateToTags.keys.intersect(state) - mainEndState - keywordsEndStates
       if (possibleEndStates.size > 1) {
         val ambiguousTags = possibleEndStates.map { endStateToTags[it]!! }.flatten().toSet()
@@ -60,9 +98,10 @@ data class Lexer(
     var row = 0
     var lastEnd = 0
     for (line in lines) {
-      for (match in regex.match(line)) {
+      for (match in regex.matches(line)) {
         var matched: String? = null
-        for ((symbol, group) in match.groups) {
+        for ((tag, group) in match.groups) {
+          val symbol = symbols[tag]!!
           if (group.end != match.end)
             continue
           if (symbol in keywords) {
