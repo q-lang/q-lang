@@ -6,7 +6,7 @@ internal class RegexParser(val pattern: String) {
 
   var idx = 0
   var groupIndex = 1
-  var fsm = FiniteStateMachine.Builder<Int, Char, String>(0)
+  var fsm = FiniteStateMachine.New<Int, Char>(0)
 
   fun more(): Boolean {
     return idx < pattern.length
@@ -40,17 +40,17 @@ internal class RegexParser(val pattern: String) {
     next()
   }
 
-  // TODO: make this function also create the transition so the new state is always created
+  // TODO: make this function also create the transitionFunction so the New state is always created
   fun newState(): Int {
-    return fsm.states.size
+    return fsm.nfa.graph.vertices.size
   }
 
-  fun parse(): FiniteStateMachine<Int, Char, String> {
+  fun parse(): FiniteStateMachine<Int, Char> {
     if (pattern.isEmpty())
       throw IllegalArgumentException("pattern cannot be empty")
     idx = 0
-    fsm = FiniteStateMachine.Builder(0)
-    fsm.tag(MAIN_GROUP, 0, expression(0))
+    fsm = FiniteStateMachine.New(0)
+    fsm.group(MAIN_GROUP, 0, expression(0))
     return fsm.build()
   }
 
@@ -86,7 +86,7 @@ internal class RegexParser(val pattern: String) {
       when (peek()) {
         '?' -> {
           /*  .?
-           *  start -i-> end
+           *  start -index-> end
            *    +--------^
            */
           fsm.transition(start, null, end)
@@ -95,7 +95,7 @@ internal class RegexParser(val pattern: String) {
 
         '+' -> {
           /*  .+
-           *  start -i-> end ---> new
+           *  start -index-> end ---> New
            *    ^---------+
            */
           val new = newState()
@@ -107,7 +107,7 @@ internal class RegexParser(val pattern: String) {
 
         '*' -> {
           /*  .*
-           *  start -i-> end ---> new
+           *  start -index-> end ---> New
            *    \ ^-------+      /^
            *     +--------------+
            */
@@ -261,7 +261,7 @@ internal class RegexParser(val pattern: String) {
     val groupEnd = expression(groupStart)
     val end = newState()
     fsm.transition(groupEnd, null, end)
-    fsm.tag(groupName, start, groupEnd)
+    fsm.group(groupName, start, groupEnd)
     return end
   }
 }

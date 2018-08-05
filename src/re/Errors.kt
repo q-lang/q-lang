@@ -16,14 +16,14 @@ class InvalidCharacterClassRange(pattern: String, col: Int) :
                         "end char code '${pattern[col + 1]}' (${pattern[col + 1].toInt()}) ")
 
 class InvalidCaptureGroupName(pattern: String, col: Int) :
-        SyntaxError(pattern, col - 1, "invalid capture tag name, must match `[_a-zA-Z0-9]\\w*`")
+        SyntaxError(pattern, col - 1, "invalid capture group name, must matches `[_a-zA-Z0-9]\\w*`")
 
 class InvalidCaptureGroupSyntax(pattern: String, col: Int) :
-        SyntaxError(pattern, col - 1, "invalid capture tag syntax, must be " +
-                "`(?<tag>pattern)` or `(?'tag'pattern)`")
+        SyntaxError(pattern, col - 1, "invalid capture group syntax, must be " +
+                "`(?<group>pattern)` or `(?'group'pattern)`")
 
 class UnmatchedOpeningCaptureGroup(pattern: String, col: Int) :
-        SyntaxError(pattern, col, "unmatched opening capture tag")
+        SyntaxError(pattern, col, "unmatched opening capture group")
 
 class UnmatchedOpeningParenthesisError(pattern: String, col: Int) :
         SyntaxError(pattern, col, "unmatched opening parenthesis")

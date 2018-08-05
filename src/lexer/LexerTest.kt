@@ -5,15 +5,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 internal class LexerTest {
-  val lex = Lexer(
-          mapOf(
-                  "word" to """[a-zA-Z]+""",
-                  "number" to """\d+"""
-          ),
-          setOf(
-                  "hello"
-          )
-  )
+  val lex = Lexer.Builder()
+          .rule("word", """[a-zA-Z]+""")
+          .rule("number", """\d+""")
+          .keyword("hello")
+          .build()
 
   @Test
   fun `duplicate symbols`() {

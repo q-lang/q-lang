@@ -49,14 +49,14 @@ internal class RegexTest {
 
   @Test
   fun `match negative`() {
-    val actual = regex.match(text_negative).toList()
+    val actual = regex.matches(text_negative).toList()
     val expected = listOf<Match>()
     assertEquals(expected, actual)
   }
 
   @Test
   fun `match positive`() {
-    val actual = regex.match(text).toList()
+    val actual = regex.matches(text).toList()
     val expected = listOf(
             match(2),
             match(9),
@@ -67,18 +67,20 @@ internal class RegexTest {
 
   @Test
   fun `match groups`() {
-    val actual = regex_groups.match(text_groups).toList()
+    val actual = regex_groups.matches(text_groups).toList()
     val expected = listOf(
             match_groups(2, 1),
             match_groups(6, 2),
             match_groups(15, 3)
     )
+    println(expected)
+    println(actual)
     assertEquals(expected, actual)
   }
 
   @Test
   fun `match named groups`() {
-    val actual = regex_named_groups.match(text_groups).toList()
+    val actual = regex_named_groups.matches(text_groups).toList()
     val expected = listOf(
             match_named_groups(2, 1),
             match_named_groups(6, 2),
@@ -89,7 +91,7 @@ internal class RegexTest {
 
   @Test
   fun `match final tags`() {
-    val actual = regex_final_tags.match(text_final_tags).toList()
+    val actual = regex_final_tags.matches(text_final_tags).toList()
     val expected = listOf(
             Match(2, 11, mapOf(
                     "1" to Group(2, 11),
